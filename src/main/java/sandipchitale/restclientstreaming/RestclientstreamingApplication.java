@@ -100,9 +100,9 @@ public class RestclientstreamingApplication {
 			httpHeadersToSend.remove(HttpHeaders.COOKIE);
 
 			return restClient
-					// Use the same HTTP method as the original request
+					// Use the same HTTP method as the original request if X-METHOD header was not specified
 					.method(httpMethod)
-					// Proxy
+					// Proxy uri
 					.uri(proxyUriString)
 					// Send the prepared headers
 					.headers((HttpHeaders headers) -> headers.addAll(httpHeadersToSend))
