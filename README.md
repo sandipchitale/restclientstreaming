@@ -5,18 +5,28 @@ A simple Spring Boot application that implements streaming using the new RestCli
 ## How to use
 
 - Run the application
-- In browser use URL: 
 
-http://localhost:8080/stream/https://jsonplaceholder.typicode.com/posts/1
+- Set the header X-METHOD to the method to proxy (GET, POST, PUT, DELETE, etc)
+    - If the header is not set, method of `HttpServletRequest` is used.
+- Send the request with proxy url and arguments as path and query params and post body
+    - The proxy request url may contain a pattern `{method}` that will be replaced by the lowercase value of the final HttpMethod.
+    - The proxy request url may contain a pattern `{METHOD}` that will be replaced by the uppercase value of the final HttpMethod.
+
+
+- For example in browser use URL: 
+
+http://localhost:8080/https://jsonplaceholder.typicode.com/posts/1
 
 ### Request
 
-URL: `http://localhost:8080/stream/https://jsonplaceholder.typicode.com/posts/1`
+URL: 
+
+`http://localhost:8080/https://jsonplaceholder.typicode.com/posts/1`
 
 Headers:
 
 ```
-GET /stream/https://jsonplaceholder.typicode.com/posts/1 HTTP/1.1
+GET /https://jsonplaceholder.typicode.com/posts/1 HTTP/1.1
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
 Accept-Encoding: gzip, deflate, br
 Accept-Language: en-US,en;q=0.9
@@ -89,7 +99,7 @@ Response Body:
 
 You can try:
 
-`http://localhost:8080/stream/https://postman-echo.com/get?onekey=onevalue&sort=fn,desc&sort=ln,asc`
+`http://localhost:8080/https://postman-echo.com/{method}?onekey=onevalue&sort=fn,desc&sort=ln,asc`
 
 Of course, you can use any other Rest Client like Postman to use other HTTP methods like POST with body, PUT with body, DELETE, etc.
 

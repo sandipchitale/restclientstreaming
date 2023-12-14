@@ -1,20 +1,16 @@
 package sandipchitale.restclientstreaming;
 
-import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpRequest;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.servlet.function.ServerResponse;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
@@ -22,6 +18,8 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 @SpringBootApplication
 public class RestclientstreamingApplication {
@@ -33,29 +31,65 @@ public class RestclientstreamingApplication {
 	@RestController
 	public static class StreamingProxyController {
 
+		private static final String X_METHOD = "X-METHOD";
+
 		private final RestClient restClient;
+		private final Set<HttpMethod> httpMethods;
 
 		public StreamingProxyController() {
 			this.restClient = RestClient.create();
+			this.httpMethods = Set.of(HttpMethod.GET,
+					HttpMethod.HEAD,
+					HttpMethod.POST,
+					HttpMethod.PUT,
+					HttpMethod.PATCH,
+					HttpMethod.DELETE,
+					HttpMethod.OPTIONS);
 		}
 
 		// Use ResponseEntity<?> to allow streaming
-		@RequestMapping("/stream/**")
+		@RequestMapping("/**")
 		public ResponseEntity<?> proxy(HttpServletRequest httpServletRequest,
+									   @RequestHeader(value = X_METHOD, required = false) String method,
 									   @RequestHeader HttpHeaders httpHeaders,
 									   HttpServletResponse httpServletResponse) {
+
+			HttpMethod nonFinalHttpMethod = null;
+			if (method == null) {
+				method = httpServletRequest.getMethod();
+			}
+
+			final String finalMethod = method;
+
+			nonFinalHttpMethod = HttpMethod.valueOf(method.toUpperCase());
+			if (!httpMethods.contains(nonFinalHttpMethod)) {
+				throw new HttpClientErrorException(HttpStatus.BAD_REQUEST, "Invalid method value: " + method + " in " + X_METHOD + " header.");
+			}
+
+			HttpMethod httpMethod = nonFinalHttpMethod;
+
 			// Prepare the URI using the URL path following /stream/
 			URI uri = ServletUriComponentsBuilder.fromRequest(httpServletRequest).build().toUri();
 			String queryString = httpServletRequest.getQueryString();
 			queryString = queryString == null ? "" : "?" + queryString;
 
-			String proxyUriString = uri.getPath().substring(8);
+			String proxyUriString = uri.getPath();
+			// Remove leading slash
+			if (proxyUriString.startsWith("/")) {
+				proxyUriString = proxyUriString.substring(1);
+			}
 			// Deal with removal of double slashes
 			if (proxyUriString.startsWith("https:/") && !proxyUriString.startsWith("https://")) {
 				proxyUriString = "https://" + proxyUriString.substring(7);
 			} else if (proxyUriString.startsWith("http:/") && !proxyUriString.startsWith("http://")) {
 				proxyUriString = "http://" + proxyUriString.substring(6);
 			}
+
+			// Replace {method} with the HTTP method in lowercase
+			proxyUriString = proxyUriString.replaceAll(Pattern.quote("%7Bmethod%7D"), finalMethod);
+			// Replace {METHOD} with the HTTP method in uppercase
+			proxyUriString = proxyUriString.replaceAll(Pattern.quote("%7BMETHOD%7D"), finalMethod);
+
 			proxyUriString += UriUtils.decode(queryString, StandardCharsets.UTF_8);
 
 			// Prepare the headers to send. We may want to filter some headers like Cookies or Authorization
@@ -67,7 +101,7 @@ public class RestclientstreamingApplication {
 
 			return restClient
 					// Use the same HTTP method as the original request
-					.method(HttpMethod.valueOf(httpServletRequest.getMethod().toUpperCase()))
+					.method(httpMethod)
 					// Proxy
 					.uri(proxyUriString)
 					// Send the prepared headers
