@@ -87,6 +87,10 @@ Response Body:
 }
 ```
 
+You can try:
+
+`http://localhost:8080/stream/https://postman-echo.com/get?onekey=onevalue&sort=fn,desc&sort=ln,asc`
+
 Of course, you can use any other Rest Client like Postman to use other HTTP methods like POST with body, PUT with body, DELETE, etc.
 
 ### Reference Documentation
