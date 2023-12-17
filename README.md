@@ -4,8 +4,8 @@ A simple Spring Boot application that implements streaming using the new RestCli
 
 ## Optional features
 
-`X-CONNECT-TIMEOUT-MILLIS` header - set the connect timeout in milliseconds. A value of 0 means infinite connect timeout.
-`X-READ-TIMEOUT-MILLIS` header - set the read timeout in milliseconds. A value of 0 means infinite read timeout.
+`X-CONNECT-TIMEOUT-MILLIS` header - set the connect timeout in milliseconds. A value of 0 means infinite connect timeout. On connect timeout, a `504 Gateway Timeout: Connect timed out` response is returned.
+`X-READ-TIMEOUT-MILLIS` header - set the read timeout in milliseconds. A value of 0 means infinite read timeout. On connect timeout, a `504 Gateway Timeout: Read timed out` response is returned.
 
 ## How to use
 
