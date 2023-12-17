@@ -4,8 +4,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
 import org.springframework.util.StreamUtils;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,8 +17,10 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 import java.io.OutputStream;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -33,8 +37,10 @@ public class RestclientstreamingApplication {
 
 		private static final String X_METHOD = "X-METHOD";
 
+		private static final String X_CONNECT_TIMEOUT_MILLIS = "X-CONNECT-TIMEOUT-MILLIS";
+		private static final String X_READ_TIMEOUT_MILLIS = "X-READ-TIMEOUT-MILLIS";
+
 		private final RestClient restClient;
-		private final Set<HttpMethod> httpMethods;
 
 		public StreamingProxyController() {
 			this.restClient = RestClient.create();
@@ -46,6 +52,8 @@ public class RestclientstreamingApplication {
 					HttpMethod.DELETE,
 					HttpMethod.OPTIONS);
 		}
+
+		private final Set<HttpMethod> httpMethods;
 
 		// Use ResponseEntity<?> to allow streaming
 		@RequestMapping("/**")
@@ -99,7 +107,7 @@ public class RestclientstreamingApplication {
 			// Filter some request headers
 			httpHeadersToSend.remove(HttpHeaders.COOKIE);
 
-			return restClient
+			return getRestClient(httpServletRequest)
 					// Use the same HTTP method as the original request if X-METHOD header was not specified
 					.method(httpMethod)
 					// Proxy uri
@@ -125,6 +133,42 @@ public class RestclientstreamingApplication {
 						return ResponseEntity.status(clientResponse.getStatusCode()).build();
 					});
 		}
-	}
 
+		private RestClient getRestClient(HttpServletRequest httpServletRequest) {
+			String connectTimeoutMillisString = httpServletRequest.getHeader(X_CONNECT_TIMEOUT_MILLIS);
+			String readTimeoutMillisString = httpServletRequest.getHeader(X_READ_TIMEOUT_MILLIS);
+			if (connectTimeoutMillisString == null && readTimeoutMillisString == null) {
+				// Return default one
+				return restClient;
+			} else {
+				Duration connectionTimeout = connectTimeoutMillisString == null ? null : Duration.ofMillis(Long.parseLong(connectTimeoutMillisString));
+				Duration readTimeout = readTimeoutMillisString == null ? null : Duration.ofMillis(Long.parseLong(readTimeoutMillisString));
+
+				RestTemplateBuilder restTemplateBuilder = new RestTemplateBuilder();
+				if (connectionTimeout != null) {
+					if (connectionTimeout.equals(Duration.ZERO)) {
+						// 0 indicates infinite connect	 timeout
+						restTemplateBuilder = restTemplateBuilder.setConnectTimeout(Duration.ofMillis(Long.MAX_VALUE));
+					} else {
+						restTemplateBuilder = restTemplateBuilder.setConnectTimeout(connectionTimeout);
+					}
+				}
+				if (readTimeout != null) {
+					if (readTimeout.equals(Duration.ZERO)) {
+						// 0 indicates infinite read timeout
+						restTemplateBuilder = restTemplateBuilder.setReadTimeout(Duration.ofMillis(Long.MAX_VALUE));
+					} else {
+						restTemplateBuilder = restTemplateBuilder.setReadTimeout(readTimeout);
+					}
+				}
+
+				return RestClient.create(restTemplateBuilder.build());
+			}
+		}
+
+		@ExceptionHandler
+		ResponseEntity<String> handleException(SocketTimeoutException socketTimeoutException) {
+			return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).body(HttpStatus.GATEWAY_TIMEOUT.getReasonPhrase() + ": " + socketTimeoutException.getMessage());
+		}
+	}
 }

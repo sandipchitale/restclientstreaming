@@ -2,6 +2,11 @@
 
 A simple Spring Boot application that implements streaming using the new RestClient.
 
+## Optional features
+
+`X-CONNECT-TIMEOUT-MILLIS` header - set the connect timeout in milliseconds. A value of 0 means infinite connect timeout.
+`X-READ-TIMEOUT-MILLIS` header - set the read timeout in milliseconds. A value of 0 means infinite read timeout.
+
 ## How to use
 
 - Run the application
@@ -11,7 +16,6 @@ A simple Spring Boot application that implements streaming using the new RestCli
 - Send the request with proxy url and arguments as path and query params and post body
     - The proxy request url may contain a pattern `{method}` that will be replaced by the lowercase value of the final HttpMethod.
     - The proxy request url may contain a pattern `{METHOD}` that will be replaced by the uppercase value of the final HttpMethod.
-
 
 - For example in browser use URL: 
 
